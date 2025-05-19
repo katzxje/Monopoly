@@ -13,6 +13,8 @@ public class Player {
     private List<Buyable> properties;
     private boolean bankrupt;
     private int getOutOfJailCards;
+    private Character character;
+    private boolean surrendered; // Track if player surrendered voluntarily
 
     /**
      * Initializes a new player with default values.
@@ -21,13 +23,26 @@ public class Player {
      */
     public Player(String name) {
         this.name = name;
-        this.money = 1500; // Standard starting money in Monopoly
+        this.money = 3000; // Increased starting money (doubled from standard 1500)
         this.position = 0; // Starting position ("GO" space)
         this.inJail = false;
         this.jailTurns = 0;
         this.properties = new ArrayList<>(); // Use interface type for flexibility
         this.bankrupt = false;
         this.getOutOfJailCards = 0;
+        this.character = null;
+        this.surrendered = false;
+    }
+
+    /**
+     * Initializes a new player with default values and a character.
+     *
+     * @param name The player's name
+     * @param character The player's character/token
+     */
+    public Player(String name, Character character) {
+        this(name);
+        this.character = character;
     }
 
     /**
@@ -50,6 +65,16 @@ public class Player {
      */
     public void addMoney(int amount) {
         this.money += amount;
+    }
+
+    /**
+     * Subtracts money from the player without bankruptcy check.
+     * Use this only when you've already verified the player has enough money.
+     *
+     * @param amount Amount of money to subtract
+     */
+    public void subtractMoney(int amount) {
+        this.money -= amount;
     }
 
     /**
@@ -186,6 +211,59 @@ public class Player {
         this.properties.clear();
     }
 
+    /**
+     * Checks if the player has a Get Out of Jail Free card.
+     *
+     * @return true if the player has at least one Get Out of Jail Free card
+     */
+    public boolean hasGetOutOfJailCard() {
+        return getOutOfJailCards > 0;
+    }
+
+    /**
+     * Sets whether the player is in jail.
+     *
+     * @param inJail true if the player is in jail, false otherwise
+     */
+    public void setInJail(boolean inJail) {
+        this.inJail = inJail;
+    }
+
+    /**
+     * Resets the jail turns counter to zero.
+     */
+    public void resetJailTurns() {
+        this.jailTurns = 0;
+    }
+
+    /**
+     * Increments the jail turns counter.
+     */
+    public void incrementJailTurns() {
+        this.jailTurns++;
+    }
+
+    /**
+     * Marks the player as having surrendered voluntarily.
+     */
+    public void surrender() {
+        this.surrendered = true;
+        this.bankrupt = true; // Player is also considered bankrupt for game mechanics
+    }
+    
+    /**
+     * Checks if the player surrendered voluntarily.
+     * 
+     * @return true if the player surrendered, false otherwise
+     */
+    public boolean hasSurrendered() {
+        return surrendered;
+    }
+    
+    public void setSurrendered(boolean surrendered) {
+        this.surrendered = surrendered;
+    }
+
     // Getters và Setters
     public String getName() {
         return name;
@@ -227,6 +305,14 @@ public class Player {
         return getOutOfJailCards;
     }
     
+    public Character getCharacter() {
+        return character;
+    }
+    
+    public void setCharacter(Character character) {
+        this.character = character;
+    }
+
     @Override
     public String toString() {
         return name + " ($" + money + ", Position: " + position + ")";
