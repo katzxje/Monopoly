@@ -1,118 +1,61 @@
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 
 /**
  * The GameEngine class manages the game flow, turns, and rules of Monopoly.
  */
-public class GameEngine {
+public class GameEngine implements MortgageService {
     private static final int BOARD_SIZE = 40;
     private static final int GO_SALARY = 200;
     private static final int JAIL_POSITION = 10;
     @SuppressWarnings("unused") // Board initialization uses this index implicitly
     private static final int GO_TO_JAIL_POSITION = 30;
     private static final int JAIL_FEE = 50;
+    private static final int MAX_JAIL_TURNS = 3;
     
-    private List<Player> players;
-    private Dice dice;
+    private final List<Player> players;
+    private final Dice dice;
     private int currentPlayerIndex;
-    private List<Space> board;
+    private final List<Space> board;
     private boolean gameOver;
+    private final List<Card> chanceCards;
+    private final List<Card> communityChestCards;
+    private final Random random;
+    private final MortgageService mortgageService;
     
     /**
-     * Initializes a new game with a list of players.
+     * Initializes a new game with a list of players and pre-initialized game components.
      *
-     * @param playerNames List of player names
+     * @param playerNames List of player names.
+     * @param dice The Dice instance to use for the game.
+     * @param mortgageService The MortgageService instance to use for the game.
+     * @param board The initialized game board.
+     * @param chanceCards The initialized deck of Chance cards.
+     * @param communityChestCards The initialized deck of Community Chest cards.
      */
-    public GameEngine(List<String> playerNames) {
+    public GameEngine(List<String> playerNames, 
+                        Dice dice, 
+                        MortgageService mortgageService,
+                        List<Space> board,
+                        List<Card> chanceCards,
+                        List<Card> communityChestCards) {
         // Initialize players
-        players = new ArrayList<>();
+        this.players = new ArrayList<>();
         for (String name : playerNames) {
-            players.add(new Player(name));
+            this.players.add(new Player(name));
         }
         
-        // Initialize dice
-        dice = new Dice();
+        this.dice = dice;
+        this.mortgageService = mortgageService;
+        this.board = board;
+        this.chanceCards = chanceCards;
+        this.communityChestCards = communityChestCards;
         
-        // Initialize the first player
-        currentPlayerIndex = 0;
-        
-        // Initialize the board
-        initializeBoard();
-        
-        // Game starts now
-        gameOver = false;
-    }
-    
-    /**
-     * Initializes all the spaces on the Monopoly board.
-     */
-    private void initializeBoard() {
-        board = new ArrayList<>();
-        
-        // Initialize 40 spaces on the board
-        // Simple example; in a real game, each space would have more properties
-        board.add(new Space("GO", SpaceType.GO));
-        
-        // Brown properties
-        board.add(new PropertySpace("Mediterranean Avenue", 60, 2, 50, "Brown"));
-        board.add(new Space("Community Chest", SpaceType.COMMUNITY_CHEST));
-        board.add(new PropertySpace("Baltic Avenue", 60, 4, 50, "Brown"));
-        board.add(new Space("Income Tax", SpaceType.TAX, 200));
-        board.add(new RailroadSpace("Reading Railroad", 200));
-        
-        // Light Blue properties
-        board.add(new PropertySpace("Oriental Avenue", 100, 6, 50, "Light Blue"));
-        board.add(new Space("Chance", SpaceType.CHANCE));
-        board.add(new PropertySpace("Vermont Avenue", 100, 6, 50, "Light Blue"));
-        board.add(new PropertySpace("Connecticut Avenue", 120, 8, 50, "Light Blue"));
-        
-        // Jail / Just Visiting
-        board.add(new Space("Jail / Just Visiting", SpaceType.JAIL));
-        
-        // Pink properties
-        board.add(new PropertySpace("St. Charles Place", 140, 10, 100, "Pink"));
-        board.add(new UtilitySpace("Electric Company", 150));
-        board.add(new PropertySpace("States Avenue", 140, 10, 100, "Pink"));
-        board.add(new PropertySpace("Virginia Avenue", 160, 12, 100, "Pink"));
-        board.add(new RailroadSpace("Pennsylvania Railroad", 200));
-        
-        // Orange properties
-        board.add(new PropertySpace("St. James Place", 180, 14, 100, "Orange"));
-        board.add(new Space("Community Chest", SpaceType.COMMUNITY_CHEST));
-        board.add(new PropertySpace("Tennessee Avenue", 180, 14, 100, "Orange"));
-        board.add(new PropertySpace("New York Avenue", 200, 16, 100, "Orange"));
-        
-        // Free Parking
-        board.add(new Space("Free Parking", SpaceType.FREE_PARKING));
-        
-        // Red properties
-        board.add(new PropertySpace("Kentucky Avenue", 220, 18, 150, "Red"));
-        board.add(new Space("Chance", SpaceType.CHANCE));
-        board.add(new PropertySpace("Indiana Avenue", 220, 18, 150, "Red"));
-        board.add(new PropertySpace("Illinois Avenue", 240, 20, 150, "Red"));
-        board.add(new RailroadSpace("B & O Railroad", 200));
-        
-        // Yellow properties
-        board.add(new PropertySpace("Atlantic Avenue", 260, 22, 150, "Yellow"));
-        board.add(new PropertySpace("Ventnor Avenue", 260, 22, 150, "Yellow"));
-        board.add(new UtilitySpace("Water Works", 150));
-        board.add(new PropertySpace("Marvin Gardens", 280, 24, 150, "Yellow"));
-        
-        // Go To Jail
-        board.add(new Space("Go To Jail", SpaceType.GO_TO_JAIL));
-        
-        // Green properties
-        board.add(new PropertySpace("Pacific Avenue", 300, 26, 200, "Green"));
-        board.add(new PropertySpace("North Carolina Avenue", 300, 26, 200, "Green"));
-        board.add(new Space("Community Chest", SpaceType.COMMUNITY_CHEST));
-        board.add(new PropertySpace("Pennsylvania Avenue", 320, 28, 200, "Green"));
-        board.add(new RailroadSpace("Short Line Railroad", 200));
-        board.add(new Space("Chance", SpaceType.CHANCE));
-        
-        // Blue properties
-        board.add(new PropertySpace("Park Place", 350, 35, 200, "Blue"));
-        board.add(new Space("Luxury Tax", SpaceType.TAX, 100));
-        board.add(new PropertySpace("Boardwalk", 400, 50, 200, "Blue"));
+        this.currentPlayerIndex = 0;
+        this.random = new Random();
+        this.gameOver = false;
     }
     
     /**
@@ -199,41 +142,69 @@ public class GameEngine {
         StringBuilder result = new StringBuilder();
         result.append(player.getName() + " is in jail (Turn " + (player.getJailTurns() + 1) + ").\n");
         
-        // Check if the player has a Get Out of Jail Free card
-        if (player.getGetOutOfJailCards() > 0) {
+        // Check if player has a Get Out of Jail Free card
+        if (player.hasGetOutOfJailCard()) {
+            result.append(player.getName() + " uses a Get Out of Jail Free card.\n");
             player.useGetOutOfJailCard();
-            result.append(player.getName() + " used a Get Out of Jail Free card.\n");
+            player.setInJail(false);
+            player.resetJailTurns();
             return result.toString();
         }
         
-        // Roll dice to try to get out
-        dice.roll();
-        result.append(dice.toString() + "\n");
-        
-        // Get out if doubles are rolled
-        if (dice.isDouble()) {
-            player.setFreeFromJail();
-            result.append(player.getName() + " rolled doubles and got out of jail!\n");
-            // Move according to the dice roll
-            player.move(dice.getTotal(), BOARD_SIZE);
-            return result.toString();
-        }
-        
-        // Increment jail turns and check if it's the 3rd turn
-        if (player.increaseJailTurn()) {
-            // After 3 turns, must pay to get out
-            boolean canPay = player.pay(JAIL_FEE);
-            if (canPay) {
-                result.append(player.getName() + " has been in jail for 3 turns and paid $" + JAIL_FEE + " to get out.\n");
-                player.setFreeFromJail();
-            } else {
-                // If unable to pay, might need to sell assets or go bankrupt
-                result.append(player.getName() + " cannot afford the jail fee and needs to sell assets.\n");
-                // In this example, assume the player cannot sell and goes bankrupt
-                player.setBankrupt(true);
+        // Option 1: Pay the fine
+        if (player.getMoney() >= JAIL_FEE) {
+            // For simplicity, we'll have the AI automatically pay after 2 turns
+            // In a real game, this would be a player choice
+            if (player.getJailTurns() >= 2) {
+                result.append(player.getName() + " pays the $" + JAIL_FEE + " fine to get out of jail.\n");
+                player.pay(JAIL_FEE);
+                player.setInJail(false);
+                player.resetJailTurns();
+                return result.toString();
             }
+        }
+        
+        // Option 2: Try to roll doubles
+        dice.roll();
+        result.append(player.getName() + " rolls " + dice.toString() + " to try to get out of jail.\n");
+        
+        if (dice.isDouble()) {
+            result.append(player.getName() + " rolled doubles and gets out of jail!\n");
+            player.setInJail(false);
+            player.resetJailTurns();
+            
+            // Move the player according to the roll
+            int steps = dice.getTotal();
+            boolean passedGo = player.move(steps, BOARD_SIZE);
+            if (passedGo) {
+                player.addMoney(GO_SALARY);
+                result.append(player.getName() + " passed GO and collected $" + GO_SALARY + ".\n");
+            }
+            
+            // Handle the space the player landed on
+            Space currentSpace = board.get(player.getPosition());
+            result.append(player.getName() + " landed on " + currentSpace.getName() + ".\n");
+            handleLandedOnSpace(player, currentSpace, result);
         } else {
-            result.append(player.getName() + " did not get out of jail this turn.\n");
+            // Failed to roll doubles
+            player.incrementJailTurns();
+            
+            // If this is the third turn in jail, player must pay and get out
+            if (player.getJailTurns() >= MAX_JAIL_TURNS) {
+                result.append("This is " + player.getName() + "'s third turn in jail. ");
+                
+                if (player.getMoney() >= JAIL_FEE) {
+                    result.append("Must pay the $" + JAIL_FEE + " fine to get out of jail.\n");
+                    player.pay(JAIL_FEE);
+                    player.setInJail(false);
+                    player.resetJailTurns();
+                } else {
+                    result.append("Cannot afford the $" + JAIL_FEE + " fine! Must sell properties or declare bankruptcy.\n");
+                    // In a real game, player would have options to mortgage properties
+                    // For simplicity, we're assuming bankruptcy if they can't pay
+                    player.setBankrupt(true);
+                }
+            }
         }
         
         return result.toString();
@@ -263,12 +234,10 @@ public class GameEngine {
                 player.goToJail(JAIL_POSITION);
                 break;
             case CHANCE:
-                result.append("Landed on Chance (not fully implemented).\n");
-                // In a real game, draw a Chance card and perform action
+                handleCardDraw(player, true, result);
                 break;
             case COMMUNITY_CHEST:
-                result.append("Landed on Community Chest (not fully implemented).\n");
-                // In a real game, draw a Community Chest card and perform action
+                handleCardDraw(player, false, result);
                 break;
             case FREE_PARKING:
                 result.append(player.getName() + " landed on Free Parking. Nothing happens.\n");
@@ -281,6 +250,230 @@ public class GameEngine {
                 break;
             default:
                 break;
+        }
+    }
+    
+    /**
+     * Handles drawing a card from Chance or Community Chest.
+     * 
+     * @param player The player drawing the card
+     * @param isChance True if drawing from Chance, false for Community Chest
+     * @param result StringBuilder to update with results
+     */
+    private void handleCardDraw(Player player, boolean isChance, StringBuilder result) {
+        List<Card> deck = isChance ? chanceCards : communityChestCards;
+        String deckName = isChance ? "Chance" : "Community Chest";
+        
+        // Draw the top card
+        Card card = deck.remove(0);
+        result.append(player.getName() + " draws " + deckName + " card: " + card.getDescription() + "\n");
+        
+        // Execute card effect
+        switch (card.getType()) {
+            case MOVEMENT:
+                int destination = card.getValue();
+                int currentPosition = player.getPosition();
+                
+                // If moving to a position before current position, player passes GO
+                if (destination < currentPosition) {
+                    player.addMoney(GO_SALARY);
+                    result.append(player.getName() + " passes GO and collects $" + GO_SALARY + ".\n");
+                }
+                
+                // Move player to destination
+                player.setPosition(destination);
+                Space destinationSpace = board.get(destination);
+                result.append(player.getName() + " moves to " + destinationSpace.getName() + ".\n");
+                
+                // Handle effects of the destination space
+                handleLandedOnSpace(player, destinationSpace, result);
+                break;
+                
+            case GO_TO_JAIL:
+                result.append(player.getName() + " goes to jail!\n");
+                player.goToJail(JAIL_POSITION);
+                break;
+                
+            case COLLECT_MONEY:
+                int amount = card.getValue();
+                player.addMoney(amount);
+                result.append(player.getName() + " collects $" + amount + ".\n");
+                break;
+                
+            case PAY_MONEY:
+                int fee = card.getValue();
+                boolean canPay = player.pay(fee);
+                if (canPay) {
+                    result.append(player.getName() + " pays $" + fee + ".\n");
+                } else {
+                    result.append(player.getName() + " cannot afford to pay $" + fee + "!\n");
+                    player.setBankrupt(true);
+                }
+                break;
+                
+            case GET_OUT_OF_JAIL_FREE:
+                player.addGetOutOfJailCard();
+                result.append(player.getName() + " keeps this card for future use.\n");
+                break;
+                
+            case REPAIRS:
+                int houseRepairCost = card.getValue();
+                int hotelRepairCost = card.getExtraValue();
+                int totalRepairCost = 0;
+                
+                // Calculate repair costs based on properties owned
+                for (Buyable property : player.getProperties()) {
+                    if (property instanceof PropertySpace) {
+                        PropertySpace propertySpace = (PropertySpace) property;
+                        
+                        if (propertySpace.hasHotel()) {
+                            totalRepairCost += hotelRepairCost;
+                        } else {
+                            totalRepairCost += houseRepairCost * propertySpace.getHouses();
+                        }
+                    }
+                }
+                
+                if (totalRepairCost > 0) {
+                    result.append(player.getName() + " must pay $" + totalRepairCost + " for repairs.\n");
+                    boolean canPayRepairs = player.pay(totalRepairCost);
+                    if (!canPayRepairs) {
+                        result.append(player.getName() + " cannot afford repairs!\n");
+                        player.setBankrupt(true);
+                    }
+                } else {
+                    result.append(player.getName() + " has no properties requiring repair.\n");
+                }
+                break;
+                
+            case PAY_EACH_PLAYER:
+                int payAmount = card.getValue();
+                int totalPaid = 0;
+                
+                for (Player otherPlayer : players) {
+                    if (otherPlayer != player && !otherPlayer.isBankrupt()) {
+                        otherPlayer.addMoney(payAmount);
+                        totalPaid += payAmount;
+                        result.append(player.getName() + " pays $" + payAmount + " to " + otherPlayer.getName() + ".\n");
+                    }
+                }
+                
+                boolean canPayAll = player.pay(totalPaid);
+                if (!canPayAll) {
+                    result.append(player.getName() + " cannot afford to pay all players!\n");
+                    player.setBankrupt(true);
+                }
+                break;
+                
+            case COLLECT_FROM_EACH_PLAYER:
+                int collectAmount = card.getValue();
+                int totalCollected = 0;
+                
+                for (Player otherPlayer : players) {
+                    if (otherPlayer != player && !otherPlayer.isBankrupt()) {
+                        boolean paid = otherPlayer.pay(collectAmount);
+                        if (paid) {
+                            totalCollected += collectAmount;
+                            result.append(otherPlayer.getName() + " pays $" + collectAmount + " to " + player.getName() + ".\n");
+                        } else {
+                            result.append(otherPlayer.getName() + " cannot afford to pay $" + collectAmount + "!\n");
+                            otherPlayer.setBankrupt(true);
+                        }
+                    }
+                }
+                
+                player.addMoney(totalCollected);
+                result.append(player.getName() + " collects a total of $" + totalCollected + ".\n");
+                break;
+                
+            case NEAREST_RAILROAD:
+                moveToNearestProperty(player, SpaceType.RAILROAD, result);
+                break;
+                
+            case NEAREST_UTILITY:
+                moveToNearestProperty(player, SpaceType.UTILITY, result);
+                break;
+                
+            case MOVE_BACKWARD:
+                int spacesToMove = card.getValue();
+                int newPosition = (player.getPosition() - spacesToMove + BOARD_SIZE) % BOARD_SIZE;
+                player.setPosition(newPosition);
+                
+                Space newSpace = board.get(newPosition);
+                result.append(player.getName() + " moves back " + spacesToMove + " spaces to " + newSpace.getName() + ".\n");
+                
+                // Handle the effects of the new space
+                handleLandedOnSpace(player, newSpace, result);
+                break;
+        }
+        
+        // Put the card at the bottom of the deck (unless it's Get Out of Jail Free)
+        if (card.getType() != CardType.GET_OUT_OF_JAIL_FREE) {
+            deck.add(card);
+        }
+    }
+    
+    /**
+     * Moves a player to the nearest property of a specified type.
+     * 
+     * @param player The player to move
+     * @param type The type of property to find (RAILROAD or UTILITY)
+     * @param result StringBuilder to update with results
+     */
+    private void moveToNearestProperty(Player player, SpaceType type, StringBuilder result) {
+        int currentPosition = player.getPosition();
+        int nearestPosition = -1;
+        int distance = BOARD_SIZE; // Maximum possible distance
+        
+        // Find the nearest property of the specified type
+        for (int i = 0; i < board.size(); i++) {
+            if (board.get(i).getType() == type) {
+                int dist = (i - currentPosition + BOARD_SIZE) % BOARD_SIZE;
+                if (dist > 0 && dist < distance) {
+                    distance = dist;
+                    nearestPosition = i;
+                }
+            }
+        }
+        
+        if (nearestPosition != -1) {
+            // Check if passing GO
+            if (nearestPosition < currentPosition) {
+                player.addMoney(GO_SALARY);
+                result.append(player.getName() + " passes GO and collects $" + GO_SALARY + ".\n");
+            }
+            
+            // Move to the nearest property
+            player.setPosition(nearestPosition);
+            Space destination = board.get(nearestPosition);
+            result.append(player.getName() + " moves to " + destination.getName() + ".\n");
+            
+            // Handle landing on the property with double rent if it's owned
+            if (destination instanceof Buyable) {
+                Buyable property = (Buyable) destination;
+                if (property.getOwner() != null && property.getOwner() != player) {
+                    // Apply double rent for landing via card
+                    int regularRent = property.calculateRent();
+                    int doubleRent = regularRent * 2;
+                    
+                    result.append(property.getName() + " is owned by " + property.getOwner().getName() + ".\n");
+                    result.append("Card effect: Rent is doubled to $" + doubleRent + ".\n");
+                    
+                    boolean canPay = player.pay(doubleRent);
+                    if (canPay) {
+                        property.getOwner().addMoney(doubleRent);
+                        result.append(player.getName() + " pays $" + doubleRent + " to " + property.getOwner().getName() + ".\n");
+                    } else {
+                        result.append(player.getName() + " cannot afford the double rent!\n");
+                        player.setBankrupt(true);
+                    }
+                } else {
+                    // If unowned or owned by the player, handle normally
+                    handlePropertySpace(player, property, result);
+                }
+            }
+        } else {
+            result.append("Error: No property of specified type found on the board.\n");
         }
     }
     
@@ -353,27 +546,115 @@ public class GameEngine {
     }
     
     /**
+     * Allows a player to build a house on a property.
+     * 
+     * @param player The player building
+     * @param property The property to build on
+     * @return true if the house was successfully built
+     */
+    public boolean buildHouse(Player player, PropertySpace property) {
+        // Check if the player is the owner and can build
+        if (property.getOwner() != player || !property.canBuildHouse()) {
+            return false;
+        }
+        
+        // Check if player can afford it
+        int houseCost = property.getHouseCost();
+        if (player.getMoney() < houseCost) {
+            return false;
+        }
+        
+        // Build the house
+        boolean built = property.addHouse();
+        if (built) {
+            player.pay(houseCost);
+            return true;
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Allows a player to build a hotel on a property.
+     * 
+     * @param player The player building
+     * @param property The property to build on
+     * @return true if the hotel was successfully built
+     */
+    public boolean buildHotel(Player player, PropertySpace property) {
+        // Check if the player is the owner and can build a hotel
+        if (property.getOwner() != player || !property.canBuildHotel()) {
+            return false;
+        }
+        
+        // Check if player can afford it
+        int houseCost = property.getHouseCost();
+        if (player.getMoney() < houseCost) {
+            return false;
+        }
+        
+        // Build the hotel
+        boolean built = property.upgradeToHotel();
+        if (built) {
+            player.pay(houseCost);
+            return true;
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Check if a player has a monopoly on a color group.
+     * 
+     * @param player The player to check
+     * @param colorGroup The color group to check
+     * @return true if the player has a monopoly
+     */
+    public boolean hasMonopoly(Player player, String colorGroup) {
+        int ownedInGroup = 0;
+        int totalInGroup = 0;
+        
+        for (Space space : board) {
+            if (space instanceof PropertySpace) {
+                PropertySpace property = (PropertySpace) space;
+                if (property.getColorGroup().equals(colorGroup)) {
+                    totalInGroup++;
+                    if (property.getOwner() == player) {
+                        ownedInGroup++;
+                    }
+                }
+            }
+        }
+        
+        return totalInGroup > 0 && ownedInGroup == totalInGroup;
+    }
+    
+    /**
      * Handles a player going bankrupt.
      *
      * @param player The player who went bankrupt
      */
-    private void handleBankruptcy(Player player) {
-        // Return all assets to the bank (or handle appropriately, e.g., transfer to creditor)
+    public void handleBankruptcy(Player player) {
+        // Make sure the player is marked bankrupt
+        player.setBankrupt(true);
+        
+        // Give all properties back to the bank (or could transfer to creditor)
         for (Buyable property : player.getProperties()) {
-            property.resetOwner(); // Reset ownership
+            property.setOwner(null);
         }
-        player.clearProperties(); // Clear player's list
+        
+        // Clear the player's properties
+        player.clearProperties();
+        
+        // Check if the game is over
+        checkGameOver();
     }
     
     /**
      * Advances to the next player in sequence.
      */
-    private void advanceToNextPlayer() {
+    public void advanceToNextPlayer() {
         currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
-        // Skip bankrupt players
-        while (players.get(currentPlayerIndex).isBankrupt() && !gameOver) {
-            currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
-        }
     }
     
     /**
@@ -402,6 +683,14 @@ public class GameEngine {
     }
     
     /**
+     * Sets the game as over, for example when a player surrenders.
+     * This is different from the automatic game over detection by bankruptcy.
+     */
+    public void setGameOver() {
+        gameOver = true;
+    }
+    
+    /**
      * Gets the list of players.
      *
      * @return List of players
@@ -426,5 +715,69 @@ public class GameEngine {
      */
     public boolean isGameOver() {
         return gameOver;
+    }
+    
+    /**
+     * Get the board spaces.
+     * 
+     * @return The list of spaces on the board
+     */
+    public List<Space> getBoard() {
+        return board;
+    }
+    
+    /**
+     * Checks if a property can be mortgaged.
+     *
+     * @param property The property to check
+     * @return true if the property can be mortgaged
+     */
+    @Override
+    public boolean canMortgage(Mortgageable property) {
+        return mortgageService.canMortgage(property);
+    }
+    
+    /**
+     * Mortgages a property.
+     *
+     * @param property The property to mortgage
+     * @return The mortgage value received
+     */
+    @Override
+    public int mortgage(Mortgageable property) {
+        return mortgageService.mortgage(property);
+    }
+    
+    /**
+     * Checks if a property can be unmortgaged.
+     *
+     * @param property The property to check
+     * @return true if the property can be unmortgaged
+     */
+    @Override
+    public boolean canUnmortgage(Mortgageable property) {
+        return mortgageService.canUnmortgage(property);
+    }
+    
+    /**
+     * Unmortgages a property.
+     *
+     * @param property The property to unmortgage
+     * @return The amount paid to unmortgage
+     */
+    @Override
+    public int unmortgage(Mortgageable property) {
+        return mortgageService.unmortgage(property);
+    }
+    
+    /**
+     * Gets the unmortgage cost (mortgage value + interest).
+     *
+     * @param property The property to calculate cost for
+     * @return The unmortgage cost
+     */
+    @Override
+    public int getUnmortgageCost(Mortgageable property) {
+        return mortgageService.getUnmortgageCost(property);
     }
 }
