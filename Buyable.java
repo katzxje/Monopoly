@@ -1,5 +1,5 @@
 /**
- * Interface representing buyable spaces on the Monopoly board (Properties, Railroads, Utilities).
+ * Interface representing buyable spaces on the Monopoly board.
  */
 public interface Buyable {
     /**
@@ -17,8 +17,7 @@ public interface Buyable {
     int getPrice();
     
     /**
-     * Calculates the rent based on the current state of the property
-     * (e.g., ownership, houses/hotels, number of railroads/utilities owned).
+     * Calculates the rent based on the current state of the property.
      *
      * @return The rent amount
      */
@@ -43,4 +42,32 @@ public interface Buyable {
      * (e.g., when returned to the bank due to bankruptcy).
      */
     void resetOwner();
+    
+    /**
+     * Checks if the property is currently mortgaged.
+     *
+     * @return true if the property is mortgaged
+     */
+    boolean isMortgaged();
+    
+    /**
+     * Mortgages the property, providing the mortgage value to the owner.
+     *
+     * @return The mortgage value
+     */
+    int mortgage();
+    
+    /**
+     * Unmortgages the property, requiring the owner to pay the mortgage plus 10% interest.
+     *
+     * @return The amount paid to unmortgage (mortgage value + 10%)
+     */
+    int unmortgage();
+    
+    /**
+     * Gets the mortgage value of the property (typically half the purchase price).
+     *
+     * @return The mortgage value
+     */
+    int getMortgageValue();
 }

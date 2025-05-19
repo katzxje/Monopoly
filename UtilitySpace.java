@@ -1,9 +1,10 @@
 /**
  * Represents a Utility space (Water Works, Electric Company) on the Monopoly board.
  */
-public class UtilitySpace extends Space implements Buyable {
+public class UtilitySpace extends Space implements Mortgageable {
     private int price;
     private Player owner;
+    private boolean mortgaged;
 
     /**
      * Initializes a new Utility space.
@@ -15,6 +16,7 @@ public class UtilitySpace extends Space implements Buyable {
         super(name, SpaceType.UTILITY);
         this.price = price;
         this.owner = null;
+        this.mortgaged = false;
     }
 
     @Override
@@ -37,8 +39,8 @@ public class UtilitySpace extends Space implements Buyable {
      */
     @Override
     public int calculateRent() {
-        if (owner == null) {
-            return 0; // No rent if unowned
+        if (owner == null || mortgaged) {
+            return 0; // No rent if unowned or mortgaged
         }
 
         // Count utilities owned by the owner
@@ -71,6 +73,34 @@ public class UtilitySpace extends Space implements Buyable {
     @Override
     public void resetOwner() {
         this.owner = null;
-        // Reset mortgage status if applicable
+        this.mortgaged = false;
+    }
+    
+    @Override
+    public boolean isMortgaged() {
+        return mortgaged;
+    }
+    
+    @Override
+    public int mortgage() {
+        if (!mortgaged) {
+            mortgaged = true;
+            return getMortgageValue();
+        }
+        return 0;
+    }
+    
+    @Override
+    public int unmortgage() {
+        if (mortgaged) {
+            mortgaged = false;
+            return 1; // Success
+        }
+        return 0;
+    }
+    
+    @Override
+    public int getMortgageValue() {
+        return price / 2; // Mortgage value is half the purchase price
     }
 }
